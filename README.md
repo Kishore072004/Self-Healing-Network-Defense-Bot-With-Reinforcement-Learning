@@ -1,4 +1,4 @@
-# 🛡️ Self-Healing Network Defense Bot with Reinforcement Learning
+# Self-Healing Network Defense Bot with Reinforcement Learning
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![Gymnasium Environment](https://img.shields.io/badge/Gymnasium-RL%20Env-green.svg?logo=openai&logoColor=white)](https://gymnasium.farama.org/)
@@ -12,40 +12,40 @@ The system features dual execution modes: a **Live VMware Environment** (attacki
 
 ---
 
-## 🌟 Key Features
+## Key Features
 
-- **🤖 Autonomous RL Agent**: Model-free Q-Learning agent with $\epsilon$-greedy exploration that learns optimal defense strategies (Allow, Block IP, Rate-Limit, Soft Restart, Flush Rules) without manual human intervention.
-- **🔬 100% ML-Driven Reward System**: Dynamic reward math computed directly from 5-class ensemble prediction probabilities ($P_{\text{benign}}, P_{\text{bot}}, P_{\text{ddos}}, P_{\text{scan}}, P_{\text{brute}}$)—eliminating hardcoded rule thresholds or static alert counts.
-- **⚡ Dual-Model Ensemble Intrusion Detection Engine**:
+- **Autonomous RL Agent**: Model-free Q-Learning agent with $\epsilon$-greedy exploration that learns optimal defense strategies (Allow, Block IP, Rate-Limit, Soft Restart, Flush Rules) without manual human intervention.
+- **100% ML-Driven Reward System**: Dynamic reward math computed directly from 5-class ensemble prediction probabilities ($P_{\text{benign}}, P_{\text{bot}}, P_{\text{ddos}}, P_{\text{scan}}, P_{\text{brute}}$)—eliminating hardcoded rule thresholds or static alert counts.
+- **Dual-Model Ensemble Intrusion Detection Engine**:
   - **52 → 30 Feature Selection** via `SelectKBest` and `StandardScaler`.
   - **Logistic Regression (Primary 80%)** + **LightGBM (Secondary 20%)** ensemble trained on the CIC-IDS2017 benchmark dataset.
-- **🖥️ Real-Time SOC Web Dashboard**:
+- **Real-Time SOC Web Dashboard**:
   - Live HTTP + WebSockets (Flask-SocketIO) dashboard monitoring threat scores, CPU/Memory telemetry, active firewall rules, probability distributions, and RL reward convergence curves.
-- **🔄 Dual Execution Modes**:
+- **Dual Execution Modes**:
   - **Live Mode**: Fully automated VMware orchestration via `vmrun.exe`. Auto-boots Kali & Ubuntu VMs, deploys `tshark` continuous network feature extractors, and executes live attack scripts (`nmap`, `hping3`, `hydra`).
   - **Simulation Mode**: Instant VM-free local training using real CIC-IDS2017 dataset sample caching and fallback synthetic traffic generators.
-- **🛡️ Resilience & Whitelisting**: Automated infrastructure whitelisting (Gateway, Loopback, DNS) to prevent self-lockout during heavy DDoS mitigation.
+- **Resilience & Whitelisting**: Automated infrastructure whitelisting (Gateway, Loopback, DNS) to prevent self-lockout during heavy DDoS mitigation.
 
 ---
 
-## 📐 System Architecture
+## System Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Attacker["🔴 Attacker Infrastructure (Kali Linux VM)"]
+    subgraph Attacker["Attacker Infrastructure (Kali Linux VM)"]
         K1["SYN Flood (hping3)"]
         K2["Port Scanning (nmap)"]
         K3["SSH/HTTP Brute Force (hydra)"]
     end
 
-    subgraph Victim["🟡 Victim Infrastructure (Ubuntu VM)"]
+    subgraph Victim["Victim Infrastructure (Ubuntu VM)"]
         U1["Network Interface (ens33)"]
         U2["tshark Continuous Capture"]
         U3["Ubuntu Metrics API (Port 8080)"]
         U4["iptables Firewall (RL_DEFENSE Chain)"]
     end
 
-    subgraph DefenseBot["🔵 Autonomous Defense Bot (Windows Host)"]
+    subgraph DefenseBot["Autonomous Defense Bot (Windows Host)"]
         D1["State Builder (17-Dim Vector)"]
         D2["ML IDS Engine (LR + LightGBM Ensemble)"]
         D3["Q-Learning Agent (4096 Discretized States)"]
@@ -66,7 +66,7 @@ flowchart TB
 
 ---
 
-## 🧠 Machine Learning & Reinforcement Learning Mechanics
+## Machine Learning & Reinforcement Learning Mechanics
 
 ### 1. Intrusion Detection System (IDS Engine)
 
@@ -146,7 +146,7 @@ $$Q(s, a) \leftarrow Q(s, a) + \alpha \left[ r + \gamma \max_{a'} Q(s', a') - Q(
 
 ---
 
-## 📊 Performance & Evaluation
+## Performance & Evaluation
 
 ```
 ============================================================
@@ -172,7 +172,7 @@ $$Q(s, a) \leftarrow Q(s, a) + \alpha \left[ r + \gamma \max_{a'} Q(s', a') - Q(
 
 ---
 
-## 🗂️ Repository Structure
+## Repository Structure
 
 ```
 rl-defense-bot/
@@ -207,7 +207,7 @@ rl-defense-bot/
 
 ---
 
-## 🚀 Quick Start & Installation
+## Quick Start & Installation
 
 ### Prerequisites
 
@@ -287,7 +287,7 @@ The system will automatically:
 
 ---
 
-## 📺 SOC Web Dashboard UI
+## SOC Web Dashboard UI
 
 The built-in web dashboard accessible at `http://localhost:5000` displays:
 - **Live System Telemetry**: CPU, Memory, Byte Rates, and Attacker IP.
@@ -298,7 +298,7 @@ The built-in web dashboard accessible at `http://localhost:5000` displays:
 
 ---
 
-## 🔧 Configuration Reference (`config.yaml`)
+## Configuration Reference (`config.yaml`)
 
 ```yaml
 training:
@@ -316,7 +316,7 @@ dashboard:
 
 ---
 
-## ❓ Troubleshooting & FAQs
+## Troubleshooting & FAQs
 
 <details>
 <summary><b>1. SSH Connection Timeout during Live Mode?</b></summary>
@@ -343,13 +343,13 @@ Place updated scikit-learn/LightGBM model PKL files in the <code>model/</code> d
 
 ---
 
-## 📜 License
+## License
 
 Distributed under the **MIT License**. See `LICENSE` for more details.
 
 ---
 
-## 👨‍💻 Author
+## Author
 
 **Kishore M**
 - GitHub: [@Kishore072004](https://github.com/Kishore072004)
