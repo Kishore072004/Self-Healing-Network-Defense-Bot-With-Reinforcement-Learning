@@ -1,0 +1,66 @@
+network:
+  ubuntu_ip:   "192.168.100.10"
+  kali_ip:     "192.168.100.5"
+  windows_ip:  "192.168.100.1"
+  subnet:      "192.168.100.0/24"
+
+ubuntu:
+  user:         "kishore"
+  password:     "ubuntu"
+  metrics_port: 8080
+  # ssh_port: 22   # optional; omit to use vmware.ssh_port
+  # Defense (iptables) runs ONLY on this Ubuntu VM over SSH — the Windows training PC is never firewalled.
+  # true = record actions only (Kali keeps hitting Ubuntu); false = real iptables on Ubuntu.
+  firewall_simulate: false
+
+kali:
+  user:     "kishore-114"
+  password: "kali"
+
+model:
+  model_dir:       "model"
+  lgb_path:        "model/lightgbm.pkl"
+  lr_path:         "model/logistic.pkl"
+  scaler_path:     "model/scaler.pkl"
+  selector_path:   "model/feature_selector.pkl"
+  label_enc_path:  "model/label_encoder.pkl"
+
+# Reward is computed directly from ML model probabilities — no external file needed
+
+training:
+  total_timesteps:       200000
+  checkpoint_freq:       5000
+  learning_rate:         0.3   # Q-table alpha (faster convergence than 0.1)
+  n_steps:               512
+  batch_size:            64
+  n_epochs:              10
+  gamma:                 0.90  # discount factor
+  obs_dim:               17
+  n_actions:             5
+  max_steps_per_episode: 30    # 30 steps × 1.5s = 45s, fits in 55s attack window
+
+# ── VMware auto-startup ──
+# Run `vmrun list` to find paths, or check VM settings
+vmware:
+  # Path to vmrun.exe. If this file is missing, the agent tries 64-bit and (x86) defaults.
+  vmrun_path: "C:/Program Files (x86)/VMware/VMware Workstation/vmrun.exe"
+  
+  # Absolute paths to the VMX files for the attacker and defender VMs
+  ubuntu_vmx: "D:/New folder (4)/Ubuntu1 64-bit.vmx"
+  kali_vmx:   "D:/kali-linux-2025.4-vmware-amd64/kali-linux-2025.4-vmware-amd64.vmwarevm/kali-linux-2025.4-vmware-amd64.vmx"
+  
+  # Set to [] if you want to skip auto-starting VMs (if you start them manually)
+  run_vms: ["ubuntu", "kali"]
+  boot_timeout:   120    # seconds to wait for VMs to be SSH-ready
+  ssh_port:       22     # must match sshd on Ubuntu/Kali
+  # Longer values help slow VMs / Wi‑Fi; Windows Paramiko needs explicit timeouts
+  ssh_connect_timeout: 20
+  ssh_banner_timeout:  30
+  shutdown_after: false  # shut down VMs after training completes
+
+# Set to true to run without VMs (synthetic traffic)
+simulation: false   # true = synthetic-only (no VMs); false = live Ubuntu metrics
+
+dashboard:
+  port: 5000
+  host: "0.0.0.0"

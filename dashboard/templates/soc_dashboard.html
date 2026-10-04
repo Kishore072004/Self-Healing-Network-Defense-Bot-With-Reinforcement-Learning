@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>IDPS Security Operations Center</title>
+  <meta name="description" content="Real-time ML-driven intrusion detection and defense system dashboard">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-primary: #080b14;
+      --bg-secondary: rgba(13, 18, 30, 0.85);
+      --bg-card: rgba(17, 24, 42, 0.75);
+      --bg-elevated: rgba(25, 35, 55, 0.6);
+      --border-primary: rgba(55, 75, 110, 0.25);
+      --border-active: rgba(99, 102, 241, 0.4);
+      --text-primary: #e8edf5;
+      --text-secondary: #8896b3;
+      --text-muted: #5a6a8a;
+      --accent-blue: #3b82f6;
+      --accent-indigo: #6366f1;
+      --accent-cyan: #06b6d4;
+      --green: #10b981;
+      --green-glow: rgba(16, 185, 129, 0.2);
+      --red: #ef4444;
+      --red-glow: rgba(239, 68, 68, 0.15);
+      --orange: #f59e0b;
+      --orange-glow: rgba(245, 158, 11, 0.15);
+      --purple: #a855f7;
+      --radius: 14px;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-primary);
+      min-height: 100vh;
+      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 13px;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(ellipse at 15% 5%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 85% 90%, rgba(99, 102, 241, 0.05) 0%, transparent 50%);
+    }
+
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 10px; }
+
+    /* ─── Top Bar ─── */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 28px;
+      background: rgba(8, 11, 20, 0.92);
+      border-bottom: 1px solid var(--border-primary);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo-group { display: flex; align-items: center; gap: 14px; }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 800; color: #fff;
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+    }
+    .logo-text h1 {
+      font-size: 15px; font-weight: 700; letter-spacing: -0.3px;
+      background: linear-gradient(135deg, #93c5fd, #a5b4fc);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .logo-text span { font-size: 10px; color: var(--text-muted); letter-spacing: 1.5px; text-transform: uppercase; }
+
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+    .status-badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 14px; border-radius: 20px;
+      border: 1px solid var(--border-primary);
+      background: var(--bg-elevated);
+      font-size: 11px; font-weight: 600;
+    }
+    .pulse-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.6); }
+      70% { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+      100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+    }
+    .mode-tag {
+      padding: 4px 10px; border-radius: 6px; font-size: 10px;
+      font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+      background: rgba(6, 182, 212, 0.12); color: var(--accent-cyan);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+    }
+    .time-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; color: var(--text-secondary);
+    }
+
+    /* ─── Launch Mode Toggle ─── */
+    .launch-mode-group {
+      display: flex;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 3px;
+      margin-right: 12px;
+      border: 1px solid var(--border-primary);
+    }
+    .launch-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 5px 12px;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .launch-btn.active {
+      background: var(--accent-indigo);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+    }
+
+    /* ─── Main Layout ─── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      grid-template-rows: auto auto auto;
+      gap: 16px;
+      padding: 20px 28px;
+      max-width: 1920px;
+      margin: 0 auto;
+    }
+
+    /* ─── Glass Card ─── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: border-color 0.3s ease;
+    }
+    .card:hover { border-color: rgba(99, 102, 241, 0.2); }
+    .card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-primary);
+    }
+    .card-title {
+      font-size: 11px; font-weight: 600; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .card-body { padding: 18px; }
+
+    /* ─── Stat Cards Row ─── */
+    .stat-card {
+      position: relative;
+      padding: 20px;
+      text-align: center;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-indigo), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .stat-card:hover::before { opacity: 1; }
+    .stat-label {
+      font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 1.2px; margin-bottom: 8px; font-weight: 600;
+    }
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 26px; font-weight: 700; color: #fff;
+      line-height: 1;
+      word-break: break-word;
+      overflow-wrap: break-word;
+    }
+    .stat-value.safe { color: var(--green); }
+    .stat-value.danger { color: var(--red); }
+    .stat-value.warning { color: var(--orange); }
+    .stat-sub {
+      font-size: 11px; color: var(--text-muted); margin-top: 6px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ─── Threat Gauge ─── */
+    .threat-gauge {
+      position: relative;
+      width: 140px; height: 140px;
+      margin: 0 auto 12px;
+    }
+    .threat-gauge svg { transform: rotate(-90deg); }
+    .gauge-bg { stroke: rgba(255,255,255,0.05); }
+    .gauge-fill { transition: stroke-dashoffset 0.6s ease, stroke 0.3s ease; }
+    .gauge-center {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .gauge-pct {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 32px; font-weight: 800;
+      line-height: 1;
+    }
+    .gauge-label {
+      font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 1px; margin-top: 4px;
+    }
+
+    /* ─── ML Model Panel ─── */
+    .model-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    .model-box {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      padding: 12px; border-radius: 10px;
+      transition: border-color 0.3s;
+    }
+    .model-box.active { border-color: var(--accent-blue); }
+    .model-box.attack { border-color: var(--red); background: var(--red-glow); }
+    .model-name {
+      font-size: 9px; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 0.8px; margin-bottom: 6px; font-weight: 600;
+    }
+    .model-pred {
+      font-size: 13px; font-weight: 700; color: var(--text-primary);
+    }
+    .model-pred.attack-text { color: var(--red); }
+    .ensemble-box {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(99, 102, 241, 0.08));
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      padding: 14px; border-radius: 10px;
+      text-align: center;
+    }
+    .agree-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 10px;
+      font-size: 10px; font-weight: 600; margin-top: 6px;
+    }
+    .agree-badge.yes { background: var(--green-glow); color: var(--green); }
+    .agree-badge.no { background: var(--red-glow); color: var(--red); }
+
+    /* ─── Probability Bars ─── */
+    .prob-bars { display: flex; flex-direction: column; gap: 8px; }
+    .prob-row { display: flex; align-items: center; gap: 10px; }
+    .prob-label {
+      font-size: 10px; font-weight: 600; color: var(--text-secondary);
+      width: 65px; text-align: right; text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .prob-track {
+      flex: 1; height: 8px; background: rgba(255,255,255,0.04);
+      border-radius: 4px; overflow: hidden; position: relative;
+    }
+    .prob-fill {
+      height: 100%; border-radius: 4px;
+      transition: width 0.5s ease;
+      min-width: 2px;
+    }
+    .prob-fill.benign { background: linear-gradient(90deg, #10b981, #34d399); }
+    .prob-fill.bot { background: linear-gradient(90deg, #a855f7, #c084fc); }
+    .prob-fill.ddos { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .prob-fill.scan { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .prob-fill.brute { background: linear-gradient(90deg, #ec4899, #f472b6); }
+    .prob-pct {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; color: var(--text-muted);
+      width: 40px;
+    }
+
+    /* ─── Chart containers ─── */
+    .chart-wrap {
+      position: relative;
+      height: 220px;
+    }
+
+    /* ─── Agent Info ─── */
+    .agent-stats {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+    }
+    .agent-stat {
+      text-align: center;
+      padding: 10px;
+      background: var(--bg-elevated);
+      border-radius: 8px;
+      border: 1px solid var(--border-primary);
+    }
+    .agent-stat-label {
+      font-size: 9px; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin-bottom: 4px;
+    }
+    .agent-stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px; font-weight: 700;
+    }
+
+    /* ─── Action Tag ─── */
+    .action-tag {
+      display: inline-block;
+      padding: 3px 8px; border-radius: 6px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .action-tag.allow { background: var(--green-glow); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+    .action-tag.block { background: var(--red-glow); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+    .action-tag.rate { background: var(--orange-glow); color: var(--orange); border: 1px solid rgba(245,158,11,0.3); }
+    .action-tag.restart { background: rgba(168,85,247,0.12); color: var(--purple); border: 1px solid rgba(168,85,247,0.3); }
+    .action-tag.flush { background: rgba(6,182,212,0.12); color: var(--accent-cyan); border: 1px solid rgba(6,182,212,0.3); }
+
+    /* ─── Log Feed ─── */
+    .log-feed {
+      max-height: 280px; overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+    }
+    .log-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.025);
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    .log-time { color: var(--text-muted); font-size: 10px; white-space: nowrap; }
+    .log-class { font-weight: 600; min-width: 80px; }
+    .log-reward { margin-left: auto; }
+    .log-reward.pos { color: var(--green); }
+    .log-reward.neg { color: var(--red); }
+
+    /* ─── Firewall Log ─── */
+    .fw-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.025);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      flex-wrap: wrap;
+    }
+    .fw-ip { color: var(--accent-cyan); font-weight: 600; white-space: nowrap; }
+    .fw-action { color: var(--red); font-weight: 600; white-space: nowrap; }
+    .fw-detail { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 1200px) {
+      .main-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 768px) {
+      .main-grid { grid-template-columns: 1fr; padding: 12px; }
+      .topbar { padding: 12px 16px; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ─── Top Bar ─── -->
+  <div class="topbar">
+    <div class="logo-group">
+      <div class="logo-icon">⛨</div>
+      <div class="logo-text">
+        <h1>IDPS Operations Center</h1>
+        <span>ML-Driven Intrusion Detection & Defense</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="launch-mode-group">
+        <button class="launch-btn active" id="btn-auto" onclick="setLaunchMode('AUTO')">Auto Attack</button>
+        <button class="launch-btn" id="btn-manual" onclick="setLaunchMode('MANUAL')">Manual</button>
+      </div>
+      <div class="mode-tag" id="mode-tag">SIMULATION</div>
+      <div class="status-badge">
+        <div class="pulse-dot"></div>
+        <span>System Online</span>
+      </div>
+      <div class="time-display" id="live-time">00:00:00</div>
+    </div>
+  </div>
+
+  <!-- ─── Main Grid ─── -->
+  <div class="main-grid">
+
+    <!-- Row 1: Key Metrics -->
+    <div class="card stat-card" id="card-threat">
+      <div class="threat-gauge">
+        <svg width="140" height="140" viewBox="0 0 140 140">
+          <circle cx="70" cy="70" r="60" fill="none" stroke-width="8" class="gauge-bg"/>
+          <circle cx="70" cy="70" r="60" fill="none" stroke-width="8" class="gauge-fill"
+            id="gauge-arc" stroke="var(--green)"
+            stroke-dasharray="377" stroke-dashoffset="377"
+            stroke-linecap="round"/>
+        </svg>
+        <div class="gauge-center">
+          <div class="gauge-pct" id="threat-pct">0%</div>
+          <div class="gauge-label">Threat</div>
+        </div>
+      </div>
+      <div class="stat-label">ML Threat Confidence</div>
+      <div class="stat-sub" id="threat-class-display">BENIGN</div>
+    </div>
+
+    <div class="card stat-card">
+      <div class="stat-value" id="stat-episode">0</div>
+      <div class="stat-label">Episode</div>
+      <div class="stat-sub" id="stat-step">Step: 0</div>
+    </div>
+
+    <div class="card stat-card">
+      <div class="stat-value" id="stat-reward">0.00</div>
+      <div class="stat-label">Total Reward</div>
+      <div class="stat-sub" id="stat-step-reward">Step: +0.00</div>
+    </div>
+
+    <div class="card stat-card">
+      <div class="stat-value" id="stat-action">Allow</div>
+      <div class="stat-label">Last Action</div>
+      <div class="stat-sub" id="stat-confidence">Confidence: 0%</div>
+    </div>
+
+    <!-- Row 2: ML Classification + Probability + Chart -->
+    <!-- ML Model Panel -->
+    <div class="card" style="grid-column: span 1;">
+      <div class="card-header">
+        <div class="card-title">ML Classification</div>
+      </div>
+      <div class="card-body">
+        <div class="model-grid">
+          <div class="model-box" id="box-lr">
+            <div class="model-name">Logistic Regression</div>
+            <div class="model-pred" id="pred-lr">Normal Traffic</div>
+          </div>
+          <div class="model-box" id="box-lgb">
+            <div class="model-name">LightGBM</div>
+            <div class="model-pred" id="pred-lgb">Normal Traffic</div>
+          </div>
+          <div class="ensemble-box">
+            <div class="model-name">Ensemble Decision</div>
+            <div class="model-pred" id="pred-ensemble" style="font-size: 16px;">Normal Traffic</div>
+            <div class="agree-badge yes" id="agree-badge">✓ Models Agree</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Probability Bars -->
+    <div class="card" style="grid-column: span 1;">
+      <div class="card-header">
+        <div class="card-title">ML Class Probabilities</div>
+      </div>
+      <div class="card-body">
+        <div class="prob-bars">
+          <div class="prob-row">
+            <div class="prob-label">Benign</div>
+            <div class="prob-track"><div class="prob-fill benign" id="prob-benign" style="width:100%"></div></div>
+            <div class="prob-pct" id="pct-benign">100%</div>
+          </div>
+          <div class="prob-row">
+            <div class="prob-label">DDoS</div>
+            <div class="prob-track"><div class="prob-fill ddos" id="prob-ddos" style="width:0%"></div></div>
+            <div class="prob-pct" id="pct-ddos">0%</div>
+          </div>
+          <div class="prob-row">
+            <div class="prob-label">PortScan</div>
+            <div class="prob-track"><div class="prob-fill scan" id="prob-scan" style="width:0%"></div></div>
+            <div class="prob-pct" id="pct-scan">0%</div>
+          </div>
+          <div class="prob-row">
+            <div class="prob-label">Bot</div>
+            <div class="prob-track"><div class="prob-fill bot" id="prob-bot" style="width:0%"></div></div>
+            <div class="prob-pct" id="pct-bot">0%</div>
+          </div>
+          <div class="prob-row">
+            <div class="prob-label">Brute</div>
+            <div class="prob-track"><div class="prob-fill brute" id="prob-brute" style="width:0%"></div></div>
+            <div class="prob-pct" id="pct-brute">0%</div>
+          </div>
+        </div>
+        <div style="margin-top: 16px;">
+          <div class="agent-stats">
+            <div class="agent-stat">
+              <div class="agent-stat-label">CPU</div>
+              <div class="agent-stat-val" id="sys-cpu">0%</div>
+            </div>
+            <div class="agent-stat">
+              <div class="agent-stat-label">Memory</div>
+              <div class="agent-stat-val" id="sys-mem">0%</div>
+            </div>
+            <div class="agent-stat">
+              <div class="agent-stat-label">Attacker</div>
+              <div class="agent-stat-val" id="sys-attacker" style="font-size:11px">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Threat Telemetry Chart -->
+    <div class="card" style="grid-column: span 2;">
+      <div class="card-header">
+        <div class="card-title">Real-Time Threat Telemetry</div>
+        <div style="font-size: 10px; color: var(--text-muted);" id="chart-info">Waiting for data...</div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <canvas id="telemetryChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Learning Curve + Agent Log + Firewall Log -->
+    <!-- Learning Curve -->
+    <div class="card" style="grid-column: span 2;">
+      <div class="card-header">
+        <div class="card-title">RL Agent Learning Curve</div>
+        <div style="font-size: 10px; color: var(--text-muted);" id="learning-info">—</div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <canvas id="learningChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Agent Action Log -->
+    <div class="card" style="grid-column: span 1;">
+      <div class="card-header">
+        <div class="card-title">Agent Action Log</div>
+        <div style="font-size: 10px; color: var(--text-muted);" id="ep-info">Ep: — | Step: —</div>
+      </div>
+      <div class="card-body" style="padding: 12px 18px;">
+        <div class="log-feed" id="action-log"></div>
+      </div>
+    </div>
+
+    <!-- Firewall Log -->
+    <div class="card" style="grid-column: span 1;">
+      <div class="card-header">
+        <div class="card-title">Firewall Rules Applied</div>
+        <div style="font-size: 10px; color: var(--text-muted);" id="fw-count">0 rules</div>
+      </div>
+      <div class="card-body" style="padding: 12px 18px;">
+        <div class="log-feed" id="fw-log">
+          <div class="fw-row" style="color: var(--text-muted);">No rules active</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const socket = io();
+    const MAX_PTS = 60;
+
+    // ─── Clock ───
+    setInterval(() => {
+      document.getElementById('live-time').textContent =
+        new Date().toLocaleTimeString('en-US', { hour12: false });
+    }, 1000);
+
+    // ─── Telemetry Chart ───
+    const ctx1 = document.getElementById('telemetryChart').getContext('2d');
+    const telemetryChart = new Chart(ctx1, {
+      type: 'line',
+      data: {
+        labels: Array(MAX_PTS).fill(''),
+        datasets: [
+          {
+            label: 'Threat Score',
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239,68,68,0.06)',
+            borderWidth: 2, tension: 0.4, fill: true, pointRadius: 0,
+            data: Array(MAX_PTS).fill(0)
+          },
+          {
+            label: 'DDoS Prob',
+            borderColor: '#f59e0b',
+            borderWidth: 1.5, tension: 0.4, pointRadius: 0,
+            borderDash: [4, 3],
+            data: Array(MAX_PTS).fill(0)
+          },
+          {
+            label: 'PortScan Prob',
+            borderColor: '#06b6d4',
+            borderWidth: 1.5, tension: 0.4, pointRadius: 0,
+            borderDash: [4, 3],
+            data: Array(MAX_PTS).fill(0)
+          },
+          {
+            label: 'Step Reward',
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16,185,129,0.05)',
+            borderWidth: 1.5, tension: 0.4, fill: true, pointRadius: 0,
+            data: Array(MAX_PTS).fill(0),
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 0 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: '#8896b3', font: { family: 'Inter', size: 10 }, boxWidth: 12, padding: 12 }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true, max: 100,
+            grid: { color: 'rgba(55,75,110,0.12)' },
+            ticks: { color: '#5a6a8a', font: { size: 10 } },
+            title: { display: true, text: 'Score (%)', color: '#5a6a8a', font: { size: 10 } }
+          },
+          y1: {
+            position: 'right',
+            grid: { display: false },
+            ticks: { color: '#5a6a8a', font: { size: 10 } },
+            title: { display: true, text: 'Reward', color: '#5a6a8a', font: { size: 10 } }
+          },
+          x: { display: false }
+        }
+      }
+    });
+
+    // ─── Learning Curve Chart ───
+    const ctx2 = document.getElementById('learningChart').getContext('2d');
+    const learningChart = new Chart(ctx2, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Episode Reward',
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99,102,241,0.08)',
+          borderWidth: 2, tension: 0.3, fill: true, pointRadius: 2,
+          pointBackgroundColor: '#6366f1',
+          data: []
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 0 },
+        plugins: {
+          legend: {
+            labels: { color: '#8896b3', font: { family: 'Inter', size: 10 }, boxWidth: 12 }
+          }
+        },
+        scales: {
+          y: {
+            grid: { color: 'rgba(55,75,110,0.12)' },
+            ticks: { color: '#5a6a8a', font: { size: 10 } },
+            title: { display: true, text: 'Reward', color: '#5a6a8a', font: { size: 10 } }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { color: '#5a6a8a', font: { size: 10 } },
+            title: { display: true, text: 'Episode', color: '#5a6a8a', font: { size: 10 } }
+          }
+        }
+      }
+    });
+
+    // ─── Action Logs ───
+    const actionLogs = [];
+    let lastLogKey = '';
+
+    // ─── Helper: Action Tag ───
+    function actionTag(name) {
+      const map = {
+        'Allow': 'allow', 'Block IP': 'block', 'Rate-limit': 'rate',
+        'Restart service': 'restart', 'Flush iptables': 'flush'
+      };
+      return `<span class="action-tag ${map[name] || 'allow'}">${name}</span>`;
+    }
+
+    // ─── Helper: Class Color ───
+    function classColor(cls) {
+      const m = { 'BENIGN': 'var(--green)', 'DDoS': 'var(--red)', 'PortScan': 'var(--orange)',
+                  'Bot': 'var(--purple)', 'Brute': '#ec4899', 'Normal Traffic': 'var(--green)' };
+      return m[cls] || 'var(--text-secondary)';
+    }
+
+    // ─── Update DOM ───
+    function updateDOM(d) {
+      if (!d) return;
+
+      // Top stats
+      const modeEl = document.getElementById('mode-tag');
+      if (modeEl && d.mode) {
+        modeEl.textContent = d.mode;
+        modeEl.style.backgroundColor = d.mode.includes('LIVE') ? 'rgba(239, 68, 68, 0.12)' : 'rgba(6, 182, 212, 0.12)';
+        modeEl.style.color = d.mode.includes('LIVE') ? 'var(--red)' : 'var(--accent-cyan)';
+        modeEl.style.borderColor = d.mode.includes('LIVE') ? 'rgba(239, 68, 68, 0.25)' : 'rgba(6, 182, 212, 0.25)';
+      }
+
+      if (d.launch_mode) {
+        document.getElementById('btn-auto').classList.toggle('active', d.launch_mode === 'AUTO');
+        document.getElementById('btn-manual').classList.toggle('active', d.launch_mode === 'MANUAL');
+      }
+
+      const threatPct = Math.round((d.threat_level || 0) * 100);
+      const gaugeArc = document.getElementById('gauge-arc');
+      const offset = 377 - (377 * threatPct / 100);
+      gaugeArc.setAttribute('stroke-dashoffset', offset);
+      gaugeArc.setAttribute('stroke', threatPct > 60 ? '#ef4444' : threatPct > 30 ? '#f59e0b' : '#10b981');
+
+      const pctEl = document.getElementById('threat-pct');
+      pctEl.textContent = `${threatPct}%`;
+      pctEl.style.color = threatPct > 60 ? '#ef4444' : threatPct > 30 ? '#f59e0b' : '#10b981';
+
+      const tcDisplay = document.getElementById('threat-class-display');
+      tcDisplay.textContent = d.threat_class || 'BENIGN';
+      tcDisplay.style.color = classColor(d.threat_class);
+
+      document.getElementById('stat-episode').textContent = d.episode || 0;
+      document.getElementById('stat-step').textContent = `Step: ${d.step || 0}`;
+
+      const rewEl = document.getElementById('stat-reward');
+      rewEl.textContent = (d.total_reward || 0).toFixed(2);
+      rewEl.className = `stat-value ${(d.total_reward || 0) >= 0 ? 'safe' : 'danger'}`;
+
+      const srEl = document.getElementById('stat-step-reward');
+      const sr = d.step_reward || 0;
+      srEl.textContent = `Step: ${sr >= 0 ? '+' : ''}${sr.toFixed(2)}`;
+      srEl.style.color = sr >= 0 ? 'var(--green)' : 'var(--red)';
+
+      document.getElementById('stat-action').textContent = d.action_name || 'Allow';
+      document.getElementById('stat-confidence').textContent = `Confidence: ${Math.round((d.confidence || 0) * 100)}%`;
+
+      // Model predictions
+      const lrCls = d.ids_lr_class || 'Normal Traffic';
+      const lgbCls = d.ids_lgb_class || 'Normal Traffic';
+      const ensCls = d.ids_final_class || 'Normal Traffic';
+      const isLrAttack = lrCls !== 'Normal Traffic';
+      const isLgbAttack = lgbCls !== 'Normal Traffic';
+      const isEnsAttack = ensCls !== 'Normal Traffic';
+
+      document.getElementById('pred-lr').textContent = lrCls;
+      document.getElementById('pred-lr').className = `model-pred${isLrAttack ? ' attack-text' : ''}`;
+      document.getElementById('box-lr').className = `model-box${isLrAttack ? ' attack' : ''}`;
+
+      document.getElementById('pred-lgb').textContent = lgbCls;
+      document.getElementById('pred-lgb').className = `model-pred${isLgbAttack ? ' attack-text' : ''}`;
+      document.getElementById('box-lgb').className = `model-box${isLgbAttack ? ' attack' : ''}`;
+
+      document.getElementById('pred-ensemble').textContent = ensCls;
+      document.getElementById('pred-ensemble').style.color = isEnsAttack ? 'var(--red)' : 'var(--accent-blue)';
+
+      const agreeEl = document.getElementById('agree-badge');
+      const agree = d.ids_models_agree !== false;
+      agreeEl.textContent = agree ? '✓ Models Agree' : '✗ Disagree';
+      agreeEl.className = `agree-badge ${agree ? 'yes' : 'no'}`;
+
+      // Probability bars
+      const probs = {
+        benign: d.p_benign || 0, ddos: d.p_ddos || 0,
+        scan: d.p_scan || 0, bot: d.p_bot || 0, brute: d.p_brute || 0
+      };
+      for (const [k, v] of Object.entries(probs)) {
+        const pct = Math.round(v * 100);
+        const fillEl = document.getElementById(`prob-${k}`);
+        const pctEl = document.getElementById(`pct-${k}`);
+        if (fillEl) fillEl.style.width = `${pct}%`;
+        if (pctEl) pctEl.textContent = `${pct}%`;
+      }
+
+      // System stats
+      document.getElementById('sys-cpu').textContent = `${(d.cpu || 0).toFixed(0)}%`;
+      document.getElementById('sys-mem').textContent = `${(d.memory || 0).toFixed(0)}%`;
+      document.getElementById('sys-attacker').textContent = d.top_attacker_ip || '—';
+      document.getElementById('ep-info').textContent = `Ep: ${d.episode || '—'} | Step: ${d.step || '—'}`;
+
+      // Chart info
+      document.getElementById('chart-info').textContent = `${d.threat_class || 'BENIGN'} — ${threatPct}% threat`;
+
+      // Telemetry chart
+      telemetryChart.data.datasets[0].data.push(threatPct);
+      telemetryChart.data.datasets[0].data.shift();
+      telemetryChart.data.datasets[1].data.push(Math.round((d.p_ddos || 0) * 100));
+      telemetryChart.data.datasets[1].data.shift();
+      telemetryChart.data.datasets[2].data.push(Math.round((d.p_scan || 0) * 100));
+      telemetryChart.data.datasets[2].data.shift();
+      telemetryChart.data.datasets[3].data.push(d.step_reward || 0);
+      telemetryChart.data.datasets[3].data.shift();
+      telemetryChart.update();
+
+      // Learning curve
+      const epRewards = d.episode_rewards || [];
+      if (epRewards.length > 0) {
+        learningChart.data.labels = epRewards.map((_, i) => i + 1);
+        learningChart.data.datasets[0].data = epRewards;
+        learningChart.update();
+        document.getElementById('learning-info').textContent =
+          `${epRewards.length} episodes | Latest: ${epRewards[epRewards.length-1]?.toFixed(1) || '—'}`;
+      }
+
+      // Action log
+      const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: "numeric", minute: "numeric", second: "numeric" });
+      if (d.action_name && d.action_name !== 'No-op') {
+        const key = `${d.episode}|${d.step}`;
+        if (key !== lastLogKey) {
+          lastLogKey = key;
+          const reward = d.step_reward || 0;
+          const html = `
+            <div class="log-row">
+              <span class="log-time">${ts}</span>
+              ${actionTag(d.action_name)}
+              <span class="log-class" style="color:${classColor(d.threat_class)}">${d.threat_class || 'BENIGN'}</span>
+              <span class="log-reward ${reward >= 0 ? 'pos' : 'neg'}">${reward >= 0 ? '+' : ''}${reward.toFixed(2)}</span>
+            </div>
+          `;
+          actionLogs.unshift(html);
+          if (actionLogs.length > 60) actionLogs.pop();
+          document.getElementById('action-log').innerHTML = actionLogs.join('');
+        }
+      }
+
+      // Firewall log
+      if (d.fw_log && Array.isArray(d.fw_log) && d.fw_log.length > 0) {
+        const fwHtml = d.fw_log.map(f => {
+          if (typeof f === 'string') {
+            return `<div class="fw-row"><span class="log-time">${ts}</span><span>${f}</span></div>`;
+          }
+          return `
+            <div class="fw-row">
+              <span class="log-time">[${f.time || ts}]</span>
+              <span class="fw-ip">${f.ip || '?'}</span>
+              <span class="fw-action">${f.action || '?'}</span>
+              <span class="fw-detail">${f.class || ''}</span>
+            </div>
+          `;
+        }).join('');
+        document.getElementById('fw-log').innerHTML = fwHtml;
+        document.getElementById('fw-count').textContent = `${d.fw_log.length} entries`;
+      }
+
+      // Blocked IPs count
+      const blocked = d.blocked_ips || [];
+      if (blocked.length > 0) {
+        document.getElementById('fw-count').textContent = `${blocked.length} blocked`;
+      }
+    }
+
+    // Socket listener
+    socket.on('state_update', updateDOM);
+
+    // Launch Mode Setter
+    function setLaunchMode(mode) {
+      document.getElementById('btn-auto').classList.toggle('active', mode === 'AUTO');
+      document.getElementById('btn-manual').classList.toggle('active', mode === 'MANUAL');
+      fetch('/api/set_launch_mode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ mode: mode })
+      }).catch(err => console.error("Error setting launch mode", err));
+    }
+  </script>
+</body>
+</html>
